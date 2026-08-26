@@ -66,13 +66,6 @@
           <option value="luma">Whole-frame luminance</option>
         </select>
       </label>
-      <label>Framing
-        <select id="framing">
-          <option value="full">Mirror / full camera frame</option>
-          <option value="fit">Fit detected subject</option>
-        </select>
-      </label>
-      <label>Subject padding <span class="value" id="paddingOut"></span><input id="padding" type="range" min="0" max="10" value="2"></label>
       <button id="calibrate">Capture empty background</button>
       <p class="hint">For silhouette mode, leave the camera fixed, step out of view, then capture the empty room.</p>
       <label>Foreground sensitivity <span class="value" id="sensitivityOut"></span><input id="sensitivity" type="range" min="5" max="100" value="30"></label>
@@ -84,10 +77,10 @@
       <h2>03 / Raster</h2>
       <label>Dither
         <select id="dither">
-          <option value="threshold">Hard threshold</option>
-          <option value="solid">Filled silhouette</option>
+          <option value="solid">Solid silhouette</option>
           <option value="bayer">Ordered 4×4</option>
           <option value="floyd">Floyd–Steinberg</option>
+          <option value="threshold">Hard threshold</option>
         </select>
       </label>
       <label>Ink threshold <span class="value" id="thresholdOut"></span><input id="threshold" type="range" min="0" max="255" value="72"></label>
@@ -115,7 +108,7 @@
   const video=$('video'), sample=$('sample'), sctx=sample.getContext('2d',{willReadFrequently:true});
   const dots=$('dots'), dctx=dots.getContext('2d');
   let stream=null, background=null, timer=null, lastFrame=0;
-  const settings=['sensitivity','cleanup','detail','padding','threshold','contrast','fps'];
+  const settings=['sensitivity','cleanup','detail','threshold','contrast','fps'];
   settings.forEach(id=>{ const update=()=>$(id+'Out').textContent=$(id).value+(id==='fps'?' FPS':''); $(id).addEventListener('input',update); update(); });
 
   function status(message){ $('status').textContent=message; }
@@ -162,14 +155,12 @@
     sctx.drawImage(video,c.x,c.y,c.w,c.h,0,0,SW,SH); sctx.restore();
     return sctx.getImageData(0,0,SW,SH);
   }
-  function cellValues(image,source={x:0,y:0,w:SW,h:SH}){
+  function cellValues(image){
     const out=new Float32Array(COLS*ROWS), mask=new Float32Array(COLS*ROWS);
-    const px=source.w/COLS, py=source.h/ROWS, sens=+$('sensitivity').value;
+    const px=SW/COLS, py=SH/ROWS, sens=+$('sensitivity').value;
     for(let gy=0;gy<ROWS;gy++) for(let gx=0;gx<COLS;gx++){
       let lum=0,diff=0,changed=0,n=0;
-      const y0=Math.max(0,Math.floor(source.y+gy*py)), y1=Math.min(SH,Math.ceil(source.y+(gy+1)*py));
-      const x0=Math.max(0,Math.floor(source.x+gx*px)), x1=Math.min(SW,Math.ceil(source.x+(gx+1)*px));
-      for(let y=y0;y<y1;y+=2) for(let x=x0;x<x1;x+=2){
+      for(let y=Math.floor(gy*py);y<Math.floor((gy+1)*py);y+=2) for(let x=Math.floor(gx*px);x<Math.floor((gx+1)*px);x+=2){
         const i=(y*SW+x)*4, r=image.data[i],g=image.data[i+1],b=image.data[i+2];
         lum += .2126*r+.7152*g+.0722*b;
         if(background){
@@ -187,19 +178,6 @@
       else out[p]=255-l;
     }
     return {values:out,mask};
-  }
-  function subjectCrop(mask){
-    let minX=COLS,minY=ROWS,maxX=-1,maxY=-1;
-    for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)if(mask[y*COLS+x]>.08){minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);}
-    if(maxX<0)return null;
-    const pad=+$('padding').value;
-    minX=Math.max(0,minX-pad);maxX=Math.min(COLS-1,maxX+pad);minY=Math.max(0,minY-pad);maxY=Math.min(ROWS-1,maxY+pad);
-    let x=minX*SW/COLS,y=minY*SH/ROWS,w=(maxX-minX+1)*SW/COLS,h=(maxY-minY+1)*SH/ROWS;
-    // Expand, never stretch, until the crop has the display's 5:3 aspect ratio.
-    const target=COLS/ROWS;
-    if(w/h>target){const nh=w/target;y-= (nh-h)/2;h=nh;}else{const nw=h*target;x-=(nw-w)/2;w=nw;}
-    if(x<0){w+=x;x=0;}if(y<0){h+=y;y=0;}if(x+w>SW)w=SW-x;if(y+h>SH)h=SH-y;
-    return {x,y,w,h};
   }
   function cleanMask(values,passes){
     let a=Float32Array.from(values);
@@ -259,10 +237,6 @@
   function process(){
     if(!stream||video.readyState<2)return;
     const image=captureSource(); let {values,mask}=cellValues(image);
-    if($('framing').value==='fit'&&background){
-      const crop=subjectCrop(mask);
-      if(crop)({values,mask}=cellValues(image,crop));
-    }
     if($('mode').value!=='luma' && background){
       const cleaned=cleanMask(mask,+$('cleanup').value);
       if($('mode').value==='silhouette'){
