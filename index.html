@@ -294,7 +294,11 @@
     const image=captureSource();
     if($('mode').value==='ai'){
       requestAi();
-      if(aiReady)drawDots(aiBits());
+      if(aiReady){
+        const bits=aiBits();
+        if($('invert').checked)for(let i=0;i<bits.length;i++)bits[i]^=1;
+        drawDots(bits);
+      }
       return;
     }
     let {values,mask}=cellValues(image);
