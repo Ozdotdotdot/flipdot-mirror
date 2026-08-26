@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>F30 Camera Lab</title>
+  <style>
+    :root { --ink:#0a0a0a; --paper:#f6f6f3; --soft:#e4e4df; --mid:#777; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink); font:14px/1.35 "Courier New",ui-monospace,monospace; }
+    button,select,input { font:inherit; }
+    header { display:flex; justify-content:space-between; align-items:end; padding:28px 30px 18px; border-bottom:1px solid #bbb; }
+    h1 { margin:0; font-size:clamp(24px,4vw,50px); letter-spacing:-.075em; text-transform:uppercase; }
+    .mark { display:grid; grid-template-columns:repeat(3,7px); gap:4px; transform:rotate(45deg); margin:10px; }
+    .mark i { width:7px; height:7px; border-radius:50%; background:#111; display:block; }
+    main { display:grid; grid-template-columns:minmax(260px,330px) 1fr; min-height:calc(100vh - 100px); }
+    aside { border-right:1px solid #bbb; padding:22px; overflow:auto; }
+    section { padding:26px; display:grid; place-items:center; min-width:0; }
+    .group { margin:0 0 23px; }
+    .group h2 { margin:0 0 10px; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:#555; }
+    label { display:grid; gap:6px; margin:10px 0; }
+    .row { display:flex; gap:8px; align-items:center; }
+    .row > * { flex:1; }
+    button,select { width:100%; min-height:38px; padding:8px 10px; color:#111; background:#fff; border:1px solid #111; border-radius:0; }
+    button:hover { color:#fff; background:#111; cursor:pointer; }
+    button.primary { color:#fff; background:#111; }
+    button.primary:hover { color:#111; background:#fff; }
+    input[type=range] { width:100%; accent-color:#111; }
+    input[type=checkbox] { width:17px; height:17px; accent-color:#111; }
+    .value { color:#555; float:right; }
+    .status { padding:10px; min-height:56px; background:#111; color:#fff; font-size:12px; }
+    .preview-wrap { display:none; margin-top:12px; border:1px solid #aaa; background:#000; }
+    video { display:block; width:100%; aspect-ratio:5/3; object-fit:cover; transform:scaleX(-1); }
+    .stage { width:min(100%,1120px); }
+    #dots { display:block; width:100%; background:white; border:1px solid #aaa; box-shadow:0 24px 70px #0001; }
+    .meta { display:flex; justify-content:space-between; gap:15px; margin-top:10px; color:#555; font-size:12px; }
+    .legend { display:flex; align-items:center; gap:7px; }
+    .legend i { width:10px; height:10px; background:#000; border-radius:50%; }
+    .switch { grid-template-columns:auto 1fr; align-items:center; }
+    .hint { color:#666; font-size:11px; margin:7px 0 0; }
+    @media(max-width:800px){ main{grid-template-columns:1fr} aside{border-right:0;border-bottom:1px solid #bbb} section{padding:15px} }
+  </style>
+</head>
+<body>
+<header>
+  <div><div style="font-size:11px;letter-spacing:.25em">XQD // OPTICAL INPUT LAB</div><h1>35 × 21</h1></div>
+  <div class="mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+</header>
+<main>
+  <aside>
+    <div class="group">
+      <h2>01 / Camera</h2>
+      <select id="camera"><option value="">Default camera</option></select>
+      <div class="row" style="margin-top:8px"><button class="primary" id="start">Start camera</button><button id="stop">Stop</button></div>
+      <label class="switch"><input id="mirror" type="checkbox" checked><span>Mirror image</span></label>
+      <label class="switch"><input id="showPreview" type="checkbox"><span>Show camera preview</span></label>
+      <div class="preview-wrap" id="previewWrap"><video id="video" playsinline muted></video></div>
+    </div>
+
+    <div class="group">
+      <h2>02 / Subject</h2>
+      <label>Interpretation
+        <select id="mode">
+          <option value="silhouette">Calibrated silhouette</option>
+          <option value="portrait">Portrait detail</option>
+          <option value="luma">Whole-frame luminance</option>
+        </select>
+      </label>
+      <button id="calibrate">Capture empty background</button>
+      <p class="hint">For silhouette mode, leave the camera fixed, step out of view, then capture the empty room.</p>
+      <label>Foreground sensitivity <span class="value" id="sensitivityOut"></span><input id="sensitivity" type="range" min="5" max="100" value="30"></label>
+      <label>Mask cleanup <span class="value" id="cleanupOut"></span><input id="cleanup" type="range" min="0" max="4" value="2"></label>
+      <label>Portrait detail <span class="value" id="detailOut"></span><input id="detail" type="range" min="0" max="100" value="55"></label>
+    </div>
+
+    <div class="group">
+      <h2>03 / Raster</h2>
+      <label>Dither
+        <select id="dither">
+          <option value="solid">Solid silhouette</option>
+          <option value="bayer">Ordered 4×4</option>
+          <option value="floyd">Floyd–Steinberg</option>
+          <option value="threshold">Hard threshold</option>
+        </select>
+      </label>
+      <label>Ink threshold <span class="value" id="thresholdOut"></span><input id="threshold" type="range" min="0" max="255" value="72"></label>
+      <label>Contrast <span class="value" id="contrastOut"></span><input id="contrast" type="range" min="50" max="220" value="125"></label>
+      <label>Camera rate <span class="value" id="fpsOut"></span><input id="fps" type="range" min="1" max="30" value="12"></label>
+      <label class="switch"><input id="invert" type="checkbox"><span>Invert ink</span></label>
+    </div>
+
+    <div class="status" id="status">READY // Start the camera. Camera access stays inside this browser tab.</div>
+  </aside>
+
+  <section>
+    <div class="stage">
+      <canvas id="dots" width="1400" height="840" aria-label="35 by 21 flip-dot simulation"></canvas>
+      <div class="meta"><span id="counter">000 / 735 DOTS ACTIVE</span><span class="legend"><i></i> BLACK = ACTUATED</span></div>
+    </div>
+  </section>
+</main>
+
+<canvas id="sample" width="350" height="210" hidden></canvas>
+<script>
+(() => {
+  const COLS=35, ROWS=21, SW=350, SH=210;
+  const $=id=>document.getElementById(id);
+  const video=$('video'), sample=$('sample'), sctx=sample.getContext('2d',{willReadFrequently:true});
+  const dots=$('dots'), dctx=dots.getContext('2d');
+  let stream=null, background=null, timer=null, lastFrame=0;
+  const settings=['sensitivity','cleanup','detail','threshold','contrast','fps'];
+  settings.forEach(id=>{ const update=()=>$(id+'Out').textContent=$(id).value+(id==='fps'?' FPS':''); $(id).addEventListener('input',update); update(); });
+
+  function status(message){ $('status').textContent=message; }
+  function drawDots(bits){
+    const w=dots.width, h=dots.height, sx=w/COLS, sy=h/ROWS, r=Math.min(sx,sy)*.31;
+    dctx.fillStyle='#fff'; dctx.fillRect(0,0,w,h); dctx.fillStyle='#090909';
+    let active=0;
+    for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++) if(bits[y*COLS+x]){
+      active++; dctx.beginPath(); dctx.arc((x+.5)*sx,(y+.5)*sy,r,0,Math.PI*2); dctx.fill();
+    }
+    $('counter').textContent=String(active).padStart(3,'0')+' / 735 DOTS ACTIVE';
+  }
+  drawDots(new Uint8Array(COLS*ROWS));
+
+  async function listCameras(){
+    if(!navigator.mediaDevices?.enumerateDevices) return;
+    const devices=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
+    const current=$('camera').value; $('camera').innerHTML='<option value="">Default camera</option>';
+    devices.forEach((d,i)=>{ const o=document.createElement('option');o.value=d.deviceId;o.textContent=d.label||`Camera ${i+1}`;$('camera').append(o); });
+    if([...$('camera').options].some(o=>o.value===current)) $('camera').value=current;
+  }
+  async function startCamera(){
+    stopCamera();
+    try{
+      const deviceId=$('camera').value;
+      stream=await navigator.mediaDevices.getUserMedia({video:{deviceId:deviceId?{exact:deviceId}:undefined,width:{ideal:1280},height:{ideal:720}},audio:false});
+      video.srcObject=stream; await video.play(); await listCameras(); background=null;
+      status('LIVE // For a silhouette, step away and capture the empty background.');
+      requestAnimationFrame(loop);
+    }catch(err){ status('CAMERA ERROR // '+err.message+' // Run this page from localhost and allow camera permission.'); }
+  }
+  function stopCamera(){
+    if(stream) stream.getTracks().forEach(t=>t.stop()); stream=null; video.srcObject=null;
+    if(timer) cancelAnimationFrame(timer); timer=null;
+  }
+  function crop(){
+    const vw=video.videoWidth||SW, vh=video.videoHeight||SH, target=COLS/ROWS;
+    let cw=vw, ch=vh; if(vw/vh>target) cw=vh*target; else ch=vw/target;
+    return {x:(vw-cw)/2,y:(vh-ch)/2,w:cw,h:ch};
+  }
+  function captureSource(){
+    const c=crop(); sctx.save(); sctx.clearRect(0,0,SW,SH);
+    if($('mirror').checked){ sctx.translate(SW,0);sctx.scale(-1,1); }
+    sctx.drawImage(video,c.x,c.y,c.w,c.h,0,0,SW,SH); sctx.restore();
+    return sctx.getImageData(0,0,SW,SH);
+  }
+  function cellValues(image){
+    const out=new Float32Array(COLS*ROWS), mask=new Float32Array(COLS*ROWS);
+    const px=SW/COLS, py=SH/ROWS, sens=+$('sensitivity').value;
+    for(let gy=0;gy<ROWS;gy++) for(let gx=0;gx<COLS;gx++){
+      let lum=0,diff=0,changed=0,n=0;
+      for(let y=Math.floor(gy*py);y<Math.floor((gy+1)*py);y+=2) for(let x=Math.floor(gx*px);x<Math.floor((gx+1)*px);x+=2){
+        const i=(y*SW+x)*4, r=image.data[i],g=image.data[i+1],b=image.data[i+2];
+        lum += .2126*r+.7152*g+.0722*b;
+        if(background){
+          const delta=(Math.abs(r-background.data[i])+Math.abs(g-background.data[i+1])+Math.abs(b-background.data[i+2]))/3;
+          diff+=delta; if(delta>sens) changed++;
+        }
+        n++;
+      }
+      const p=gy*COLS+gx, l=lum/n;
+      // A changed-pixel ratio preserves faces and clothing better than averaging
+      // their colors together with the unchanged background inside a coarse cell.
+      mask[p]=background?Math.max(changed/n,Math.max(0,Math.min(1,(diff/n-sens)/(sens*.9)))):1;
+      if($('mode').value==='silhouette') out[p]=mask[p]*255;
+      else if($('mode').value==='portrait') out[p]=mask[p]*(255-l)*(+$('detail').value/50);
+      else out[p]=255-l;
+    }
+    return {values:out,mask};
+  }
+  function cleanMask(values,passes){
+    let a=Float32Array.from(values);
+    for(let p=0;p<passes;p++){
+      const b=Float32Array.from(a);
+      for(let y=1;y<ROWS-1;y++) for(let x=1;x<COLS-1;x++){
+        let sum=0;for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++)sum+=a[(y+oy)*COLS+x+ox];
+        b[y*COLS+x]=sum/9;
+      } a=b;
+    } return a;
+  }
+  function solidMask(values,passes){
+    let a=Uint8Array.from(values,v=>v>.10);
+    // Close small holes, then use neighbour support to suppress isolated noise.
+    for(let p=0;p<Math.max(1,passes);p++){
+      const dilated=Uint8Array.from(a);
+      for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+        let any=0;for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
+          const xx=x+ox,yy=y+oy;if(xx>=0&&xx<COLS&&yy>=0&&yy<ROWS)any|=a[yy*COLS+xx];
+        } dilated[y*COLS+x]=any;
+      }
+      const closed=Uint8Array.from(dilated);
+      for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+        let count=0,total=0;for(let oy=-1;oy<=1;oy++)for(let ox=-1;ox<=1;ox++){
+          const xx=x+ox,yy=y+oy;if(xx>=0&&xx<COLS&&yy>=0&&yy<ROWS){total++;count+=dilated[yy*COLS+xx];}
+        } closed[y*COLS+x]=count>=Math.max(3,total-3);
+      } a=closed;
+    }
+    // Fill background holes fully enclosed by the subject.
+    const outside=new Uint8Array(a.length),queue=[];
+    const push=(x,y)=>{const i=y*COLS+x;if(!a[i]&&!outside[i]){outside[i]=1;queue.push(i);}};
+    for(let x=0;x<COLS;x++){push(x,0);push(x,ROWS-1);}for(let y=0;y<ROWS;y++){push(0,y);push(COLS-1,y);}
+    while(queue.length){const i=queue.shift(),x=i%COLS,y=Math.floor(i/COLS);if(x)push(x-1,y);if(x<COLS-1)push(x+1,y);if(y)push(x,y-1);if(y<ROWS-1)push(x,y+1);}
+    for(let i=0;i<a.length;i++)if(!a[i]&&!outside[i])a[i]=1;
+    return a;
+  }
+  function contrast(values){
+    const k=+$('contrast').value/100;
+    return Float32Array.from(values,v=>Math.max(0,Math.min(255,(v-128)*k+128)));
+  }
+  function rasterize(input){
+    const type=$('dither').value, threshold=+$('threshold').value, bits=new Uint8Array(input.length);
+    if(type==='solid'||type==='threshold') input.forEach((v,i)=>bits[i]=v>=threshold);
+    else if(type==='bayer'){
+      const m=[[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
+      for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++) bits[y*COLS+x]=input[y*COLS+x] > ((m[y%4][x%4]+.5)/16*255 + threshold-128);
+    }else{
+      const work=Float32Array.from(input);
+      for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++){
+        const i=y*COLS+x, old=work[i], on=old>=threshold;bits[i]=on;const e=old-(on?255:0);
+        if(x+1<COLS)work[i+1]+=e*7/16;if(y+1<ROWS){if(x>0)work[i+COLS-1]+=e*3/16;work[i+COLS]+=e*5/16;if(x+1<COLS)work[i+COLS+1]+=e/16;}
+      }
+    }
+    if($('invert').checked) for(let i=0;i<bits.length;i++)bits[i]^=1;
+    return bits;
+  }
+  function process(){
+    if(!stream||video.readyState<2)return;
+    const image=captureSource(); let {values,mask}=cellValues(image);
+    if($('mode').value!=='luma' && background){
+      const cleaned=cleanMask(mask,+$('cleanup').value);
+      if($('mode').value==='silhouette'){
+        const shape=$('dither').value==='solid'?solidMask(mask,+$('cleanup').value):cleaned;
+        values=Float32Array.from(shape,v=>v*255);
+      }
+      else for(let i=0;i<values.length;i++) values[i]*=cleaned[i]/Math.max(mask[i],.001);
+    }
+    drawDots(rasterize(contrast(values)));
+  }
+  function loop(t){
+    const interval=1000/(+$('fps').value);if(t-lastFrame>=interval){lastFrame=t;process();}
+    if(stream)timer=requestAnimationFrame(loop);
+  }
+
+  $('start').onclick=startCamera; $('stop').onclick=()=>{stopCamera();status('STOPPED // Camera released.');};
+  $('camera').onchange=()=>{if(stream)startCamera();};
+  $('calibrate').onclick=()=>{if(!stream)return status('CALIBRATION ERROR // Start the camera first.');background=captureSource();status('BACKGROUND CAPTURED // Step into frame. Recalibrate if the camera or lighting moves.');};
+  $('showPreview').onchange=()=>{$('previewWrap').style.display=$('showPreview').checked?'block':'none';};
+  $('mirror').onchange=()=>{video.style.transform=$('mirror').checked?'scaleX(-1)':'none';background=null;};
+  window.addEventListener('beforeunload',stopCamera); listCameras();
+})();
+</script>
+</body>
+</html>
