@@ -61,16 +61,21 @@
       <h2>02 / Subject</h2>
       <label>Interpretation
         <select id="mode">
+          <option value="ai">AI person mirror</option>
           <option value="silhouette">Calibrated silhouette</option>
           <option value="portrait">Portrait detail</option>
           <option value="luma">Whole-frame luminance</option>
         </select>
       </label>
+      <p class="hint">AI person mirror uses semantic segmentation and pose landmarks. It does not require an empty-room calibration.</p>
       <button id="calibrate">Capture empty background</button>
       <p class="hint">For silhouette mode, leave the camera fixed, step out of view, then capture the empty room.</p>
       <label>Foreground sensitivity <span class="value" id="sensitivityOut"></span><input id="sensitivity" type="range" min="5" max="100" value="30"></label>
       <label>Mask cleanup <span class="value" id="cleanupOut"></span><input id="cleanup" type="range" min="0" max="4" value="2"></label>
       <label>Portrait detail <span class="value" id="detailOut"></span><input id="detail" type="range" min="0" max="100" value="55"></label>
+      <label>AI cell coverage <span class="value" id="coverageOut"></span><input id="coverage" type="range" min="5" max="80" value="25"></label>
+      <label>Limb reinforcement <span class="value" id="limbWidthOut"></span><input id="limbWidth" type="range" min="0" max="4" value="2"></label>
+      <label>Dot hysteresis <span class="value" id="hysteresisOut"></span><input id="hysteresis" type="range" min="0" max="20" value="8"></label>
     </div>
 
     <div class="group">
@@ -101,17 +106,36 @@
 </main>
 
 <canvas id="sample" width="350" height="210" hidden></canvas>
+<canvas id="aiMask" width="350" height="210" hidden></canvas>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
 <script>
 (() => {
   const COLS=35, ROWS=21, SW=350, SH=210;
   const $=id=>document.getElementById(id);
   const video=$('video'), sample=$('sample'), sctx=sample.getContext('2d',{willReadFrequently:true});
+  const aiMask=$('aiMask'), actx=aiMask.getContext('2d',{willReadFrequently:true});
   const dots=$('dots'), dctx=dots.getContext('2d');
-  let stream=null, background=null, timer=null, lastFrame=0;
-  const settings=['sensitivity','cleanup','detail','threshold','contrast','fps'];
+  let stream=null, background=null, timer=null, lastFrame=0, aiReady=false, aiBusy=false, aiFrame=0;
+  let poseLandmarks=null, stableBits=new Uint8Array(COLS*ROWS);
+  const settings=['sensitivity','cleanup','detail','coverage','limbWidth','hysteresis','threshold','contrast','fps'];
   settings.forEach(id=>{ const update=()=>$(id+'Out').textContent=$(id).value+(id==='fps'?' FPS':''); $(id).addEventListener('input',update); update(); });
 
   function status(message){ $('status').textContent=message; }
+
+  const selfie=typeof SelfieSegmentation==='function'?new SelfieSegmentation({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${f}`}):null;
+  const pose=typeof Pose==='function'?new Pose({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`}):null;
+  if(selfie){
+    selfie.setOptions({modelSelection:0,selfieMode:false});
+    selfie.onResults(results=>{
+      actx.clearRect(0,0,SW,SH);actx.drawImage(results.segmentationMask,0,0,SW,SH);
+      aiReady=true;aiBusy=false;
+    });
+  }
+  if(pose){
+    pose.setOptions({modelComplexity:0,smoothLandmarks:true,enableSegmentation:false,minDetectionConfidence:.45,minTrackingConfidence:.45});
+    pose.onResults(results=>{poseLandmarks=results.poseLandmarks||null;});
+  }
   function drawDots(bits){
     const w=dots.width, h=dots.height, sx=w/COLS, sy=h/ROWS, r=Math.min(sx,sy)*.31;
     dctx.fillStyle='#fff'; dctx.fillRect(0,0,w,h); dctx.fillStyle='#090909';
@@ -135,8 +159,8 @@
     try{
       const deviceId=$('camera').value;
       stream=await navigator.mediaDevices.getUserMedia({video:{deviceId:deviceId?{exact:deviceId}:undefined,width:{ideal:1280},height:{ideal:720}},audio:false});
-      video.srcObject=stream; await video.play(); await listCameras(); background=null;
-      status('LIVE // For a silhouette, step away and capture the empty background.');
+      video.srcObject=stream; await video.play(); await listCameras(); background=null;aiReady=false;poseLandmarks=null;stableBits.fill(0);
+      status(selfie?'LIVE // AI person model is loading; the first result may take a moment.':'LIVE // AI unavailable; select a calibrated or luminance mode.');
       requestAnimationFrame(loop);
     }catch(err){ status('CAMERA ERROR // '+err.message+' // Run this page from localhost and allow camera permission.'); }
   }
@@ -218,6 +242,37 @@
     const k=+$('contrast').value/100;
     return Float32Array.from(values,v=>Math.max(0,Math.min(255,(v-128)*k+128)));
   }
+  const limbSegments=[[11,13],[13,15],[15,19],[15,21],[12,14],[14,16],[16,20],[16,22],[23,25],[25,27],[24,26],[26,28]];
+  function reinforceLimbs(){
+    if(!poseLandmarks||!+$('limbWidth').value)return;
+    actx.save();actx.strokeStyle='#fff';actx.lineCap='round';actx.lineJoin='round';
+    actx.lineWidth=+$('limbWidth').value*(SW/COLS);
+    for(const [a,b] of limbSegments){
+      const p=poseLandmarks[a],q=poseLandmarks[b];
+      if(!p||!q||(p.visibility??1)<.35||(q.visibility??1)<.35)continue;
+      actx.beginPath();actx.moveTo(p.x*SW,p.y*SH);actx.lineTo(q.x*SW,q.y*SH);actx.stroke();
+    }
+    actx.restore();
+  }
+  function aiBits(){
+    reinforceLimbs();
+    const data=actx.getImageData(0,0,SW,SH).data, coverage=+$('coverage').value/100, margin=+$('hysteresis').value/100;
+    const next=new Uint8Array(COLS*ROWS),cw=SW/COLS,ch=SH/ROWS;
+    for(let gy=0;gy<ROWS;gy++)for(let gx=0;gx<COLS;gx++){
+      let foreground=0,total=0;
+      for(let y=Math.floor(gy*ch);y<Math.ceil((gy+1)*ch);y+=2)for(let x=Math.floor(gx*cw);x<Math.ceil((gx+1)*cw);x+=2){
+        const i=(y*SW+x)*4;foreground+=Math.max(data[i],data[i+1],data[i+2])/255;total++;
+      }
+      const i=gy*COLS+gx, fraction=foreground/total;
+      next[i]=stableBits[i]?fraction>=Math.max(0,coverage-margin):fraction>=coverage;
+    }
+    stableBits=next;return next;
+  }
+  function requestAi(){
+    if(!selfie||aiBusy)return;
+    aiBusy=true;selfie.send({image:sample}).catch(err=>{aiBusy=false;status('AI ERROR // '+err.message);});
+    if(pose&&aiFrame++%2===0)pose.send({image:sample}).catch(()=>{});
+  }
   function rasterize(input){
     const type=$('dither').value, threshold=+$('threshold').value, bits=new Uint8Array(input.length);
     if(type==='solid'||type==='threshold') input.forEach((v,i)=>bits[i]=v>=threshold);
@@ -236,7 +291,13 @@
   }
   function process(){
     if(!stream||video.readyState<2)return;
-    const image=captureSource(); let {values,mask}=cellValues(image);
+    const image=captureSource();
+    if($('mode').value==='ai'){
+      requestAi();
+      if(aiReady)drawDots(aiBits());
+      return;
+    }
+    let {values,mask}=cellValues(image);
     if($('mode').value!=='luma' && background){
       const cleaned=cleanMask(mask,+$('cleanup').value);
       if($('mode').value==='silhouette'){

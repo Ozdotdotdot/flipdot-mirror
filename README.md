@@ -34,6 +34,15 @@ Allow camera access when prompted. After permission is granted, the camera menu 
 
 Background calibration is intentionally local and model-free. It works well for a fixed installation camera but must be repeated if the camera or lighting changes substantially.
 
+## AI person mirror
+
+The default mode now loads MediaPipe person segmentation and pose tracking in the browser. Its pipeline is semantic person mask → pose-based limb reinforcement → area-coverage reduction to 35×21 → per-dot hysteresis. This is designed to retain arms and gestures without converting photographic shading into unstable dithering. The first load requires internet access for the MediaPipe runtime and models; camera frames remain in the browser.
+
+- **AI cell coverage** controls how much of a physical dot's source area must contain the person before it turns on.
+- **Limb reinforcement** draws a minimum-width pose skeleton into the person mask before downsampling. Set it to zero to inspect raw segmentation.
+- **Dot hysteresis** gives an active dot a slightly lower turn-off threshold, reducing chatter at mask boundaries.
+- The original calibrated background-subtraction, portrait, and luminance modes remain available for direct comparison.
+
 ## Display interpretation
 
 - White page/canvas: inactive display surface.
