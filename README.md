@@ -30,7 +30,12 @@ Allow camera access when prompted. After permission is granted, the camera menu 
 6. Adjust foreground sensitivity and mask cleanup.
 7. Compare ordered dithering, Floyd–Steinberg dithering, and hard thresholding.
 
-**Solid silhouette** is the default raster mode. At only 35×21 pixels, a continuous human outline is usually more legible than facial shading. The dithering modes remain available as deliberate visual treatments rather than the default interpretation.
+**Hard threshold** is the default raster mode because it preserves narrow arms and gestures better at 35×21. Filled silhouette and both dithering algorithms remain available as deliberate visual treatments.
+
+Framing is also selectable:
+
+- **Mirror / full camera frame** preserves the installation-as-mirror composition.
+- **Fit detected subject** crops around foreground motion, maintains the display's 5:3 aspect ratio, and enlarges the subject without stretching them. Subject padding controls how much environment remains visible.
 
 Background calibration is intentionally local and model-free. It works well for a fixed installation camera but must be repeated if the camera or lighting changes substantially.
 
