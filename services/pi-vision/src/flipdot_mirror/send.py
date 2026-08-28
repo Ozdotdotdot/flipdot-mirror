@@ -39,7 +39,7 @@ def main() -> None:
     width = args.modules_x * 5
     height = args.modules_y * 7
     frame = pattern_frame(width, height, args.pattern)
-    payload = frame.to_f30_stream()
+    payload = frame.to_logical_bytes()
 
     with serial.Serial(args.port, args.baud, timeout=1) as device:
         time.sleep(0.25)

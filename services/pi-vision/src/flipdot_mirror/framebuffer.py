@@ -19,6 +19,10 @@ class FrameBuffer:
     def clear(self) -> None:
         self.bits[:] = bytes(len(self.bits))
 
+    def to_logical_bytes(self) -> bytes:
+        """Return top-left-first row-major bytes for the ESP32 transport."""
+        return bytes(0xFF if bit else 0x00 for bit in self.bits)
+
     def to_f30_stream(self, serpentine: bool = True) -> bytes:
         """Map top-left logical pixels to module-chain bytes.
 

@@ -1,17 +1,30 @@
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 
-#ifndef DISPLAY_BYTES
-#define DISPLAY_BYTES 35
+#ifndef DISPLAY_WIDTH
+#define DISPLAY_WIDTH 5
+#endif
+
+#ifndef DISPLAY_HEIGHT
+#define DISPLAY_HEIGHT 7
 #endif
 
 #ifndef F30_DATA_PIN
 #define F30_DATA_PIN 18
 #endif
 
+constexpr size_t MODULE_WIDTH = 5;
+constexpr size_t MODULE_HEIGHT = 7;
+constexpr size_t MODULE_BYTES = MODULE_WIDTH * MODULE_HEIGHT;
+constexpr size_t MODULE_COLUMNS = DISPLAY_WIDTH / MODULE_WIDTH;
+constexpr size_t MODULE_ROWS = DISPLAY_HEIGHT / MODULE_HEIGHT;
+constexpr size_t DISPLAY_BYTES = DISPLAY_WIDTH * DISPLAY_HEIGHT;
 constexpr size_t PADDED_BYTES = ((DISPLAY_BYTES + 2) / 3) * 3;
 constexpr size_t PSEUDO_PIXELS = PADDED_BYTES / 3;
 constexpr uint8_t MAGIC[] = {'F', 'D', 'M', '1'};
+
+static_assert(DISPLAY_WIDTH % MODULE_WIDTH == 0, "display width must contain complete F30 modules");
+static_assert(DISPLAY_HEIGHT % MODULE_HEIGHT == 0, "display height must contain complete F30 modules");
 
 Adafruit_NeoPixel dotBus(PSEUDO_PIXELS, F30_DATA_PIN, NEO_GRB + NEO_KHZ800);
 uint8_t framebuffer[DISPLAY_BYTES] = {0};
@@ -27,10 +40,29 @@ uint16_t crc16(const uint8_t *data, size_t length) {
   return crc;
 }
 
-void sendFrame(const uint8_t *frame) {
+void sendFrame(const uint8_t *logicalFrame) {
   uint8_t *wire = dotBus.getPixels();
   memset(wire, 0, PADDED_BYTES);
-  memcpy(wire, frame, DISPLAY_BYTES);
+
+  size_t chainModule = 0;
+  for (size_t moduleY = 0; moduleY < MODULE_ROWS; ++moduleY) {
+    for (size_t chainX = 0; chainX < MODULE_COLUMNS; ++chainX) {
+      const size_t moduleX =
+          moduleY % 2 ? MODULE_COLUMNS - 1 - chainX : chainX;
+      const size_t moduleBase = chainModule++ * MODULE_BYTES;
+
+      for (size_t localY = 0; localY < MODULE_HEIGHT; ++localY) {
+        for (size_t localX = 0; localX < MODULE_WIDTH; ++localX) {
+          const size_t logicalX = moduleX * MODULE_WIDTH + localX;
+          const size_t logicalY = moduleY * MODULE_HEIGHT + localY;
+          const size_t logicalIndex = logicalY * DISPLAY_WIDTH + logicalX;
+          const size_t localWireIndex =
+              MODULE_BYTES - 1 - localY * MODULE_WIDTH - localX;
+          wire[moduleBase + localWireIndex] = logicalFrame[logicalIndex];
+        }
+      }
+    }
+  }
   dotBus.show();
 }
 

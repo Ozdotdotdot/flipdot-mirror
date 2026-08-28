@@ -17,6 +17,15 @@ class FrameBufferTests(unittest.TestCase):
     def test_full_display_length(self):
         self.assertEqual(len(FrameBuffer().to_f30_stream()), 735)
 
+    def test_logical_transport_order(self):
+        frame = FrameBuffer(5, 7)
+        frame.set(0, 0)
+        frame.set(4, 6)
+        payload = frame.to_logical_bytes()
+        self.assertEqual(payload[0], 0xFF)
+        self.assertEqual(payload[-1], 0xFF)
+        self.assertEqual(payload.count(0xFF), 2)
+
     def test_serpentine_second_row(self):
         frame = FrameBuffer(10, 14)
         frame.set(5, 7)  # top-left of bottom-right logical module

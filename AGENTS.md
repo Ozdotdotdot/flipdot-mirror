@@ -27,7 +27,7 @@ Use the logical 35 × 21 framebuffer as the boundary between vision and hardware
 
 ## Default physical layout
 
-The planned cable route is serpentine by module row. The mapping implementation is in `services/pi-vision/src/flipdot_mirror/framebuffer.py`; change that one boundary if the installed cable order differs.
+The planned cable route is serpentine by module row. Production mapping lives in `firmware/esp32-controller/src/main.cpp`; change that one boundary if the installed cable order differs. Python's `to_f30_stream()` remains a reference implementation and direct-driver utility.
 
 ## Commands
 
@@ -50,4 +50,3 @@ pio device monitor -b 921600
 - Never commit invoices, contracts, addresses, phone numbers, private supplier messages, tracking data, or proprietary supplier PDFs.
 - Record newly verified hardware behavior in `docs/` and distinguish measurement from assumption.
 - Run relevant tests and commit completed changes. The public repository should remain reproducible from a fresh clone.
-

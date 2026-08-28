@@ -20,6 +20,6 @@ python3 -m pip install -e '.[serial]'
 flipdot-send /dev/ttyUSB0 --pattern border
 ```
 
-For the final 7 × 3 display, add `--modules-x 7 --modules-y 3`. The sender maps the logical canvas into the configured serpentine module chain before transmitting it.
+For the final 7 × 3 display, add `--modules-x 7 --modules-y 3`. The sender transmits an ordinary top-left-first logical canvas; the ESP32 owns the physical serpentine and module-local mapping.
 
 The next increment will add camera capture and a native segmentation backend. The browser prototype in `apps/camera-web` remains the visual reference implementation.
