@@ -1,0 +1,10 @@
+.DS_Store
+.pio/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.env
+captures/
+private/

@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flipdot-mirror"
+version = "0.1.0"
+description = "Framebuffer mapping and transport for the 35x21 flip-dot mirror"
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+serial = ["pyserial>=3.5"]
+
+[project.scripts]
+flipdot-send = "flipdot_mirror.send:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
