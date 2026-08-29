@@ -23,10 +23,12 @@ Serves on `0.0.0.0:8091`. Open `/` for the grid view, shader picker, and media u
 
 ## Shaders
 
-Ten procedural generators live in `shaders.py` (ripple, ember static, bayer fade, gear
-sweep, Conway's-life-based "conway clack", pulse heart, curtain wipe, snow drift, checker
-breath, standing wave interference). Each is a pure function of `(x, y, t, width, height)`
-returning on/off, so they generalize to the eventual 35x21 wall without changes.
+Sixteen procedural generators live in `shaders.py`. Alongside spatial patterns such as
+ripple, swirl, snow drift, and standing-wave interference are five deliberately percussive
+sequences: Domino Run makes a single-dot roll, Shutter Clack moves whole rows, SOS Beacon
+uses the panel as a mechanical sounder, Countdown Pop ends in a radial burst, and Pinball
+alternates quiet two-dot motion with loud border hits. Each is a pure function of
+`(x, y, t, width, height)` returning on/off, so it generalizes to the eventual 35x21 wall.
 
 Playback fps is capped at 10 (see `playback.py`) — these are real mechanical relays
 flipping, not screen pixels, so the frame rate is deliberately conservative.

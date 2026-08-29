@@ -160,6 +160,105 @@ def standing_wave(x, y, t, width, height):
     return (w1 + w2) > 0.3
 
 
+def domino_run(x, y, t, width, height):
+    """Walk a single change through a serpentine path, then walk it back.
+
+    Most frames make exactly one new mechanical click.  The short pauses at the
+    two ends make the direction change legible by ear as well as by eye.
+    """
+    cells = max(1, width * height)
+    step_time = 0.11
+    pause_steps = 5
+    phase = int(t / step_time) % (2 * cells + 2 * pause_steps)
+    if phase < cells:
+        filled = phase + 1
+    elif phase < cells + pause_steps:
+        filled = cells
+    elif phase < 2 * cells + pause_steps:
+        filled = 2 * cells + pause_steps - phase - 1
+    else:
+        filled = 0
+
+    path_x = x if y % 2 == 0 else width - 1 - x
+    return y * width + path_x < filled
+
+
+def shutter_clack(x, y, t, width, height):
+    """Close horizontal slats in a roll, hold, then reopen them in reverse."""
+    beat = 0.18
+    pause = 4
+    phase = int(t / beat) % (2 * height + 2 * pause)
+    if phase < height:
+        closed_rows = phase + 1
+    elif phase < height + pause:
+        closed_rows = height
+    elif phase < 2 * height + pause:
+        closed_rows = 2 * height + pause - phase - 1
+    else:
+        closed_rows = 0
+    return y < closed_rows
+
+
+# A whole-panel light is an unusually forceful sound on flip-dot hardware.  SOS
+# gives that sound a familiar phrase instead of using it as undifferentiated noise.
+_SOS_UNITS = (
+    True, False, True, False, True, False, False, False,       # S
+    True, True, True, False, True, True, True, False,
+    True, True, True, False, False, False,                      # O
+    True, False, True, False, True, False, False, False, False, False,
+)
+
+
+def sos_beacon(x, y, t, width, height):
+    """Flash an endlessly repeating SOS with one time unit per 0.22 seconds."""
+    return _SOS_UNITS[int(t / 0.22) % len(_SOS_UNITS)]
+
+
+_COUNTDOWN_GLYPHS = {
+    "3": ("111", "001", "111", "001", "111"),
+    "2": ("111", "001", "111", "100", "111"),
+    "1": ("010", "110", "010", "010", "111"),
+}
+
+
+def countdown_pop(x, y, t, width, height):
+    """Count 3-2-1, then fire a brief radial burst and take a breath."""
+    phase = t % 4.8
+    if phase < 3.0:
+        glyph = _COUNTDOWN_GLYPHS[str(3 - int(phase))]
+        scale = max(1, min(width // 3, height // 5))
+        glyph_w, glyph_h = 3 * scale, 5 * scale
+        left, top = (width - glyph_w) // 2, (height - glyph_h) // 2
+        gx, gy = (x - left) // scale, (y - top) // scale
+        return (
+            left <= x < left + glyph_w
+            and top <= y < top + glyph_h
+            and glyph[gy][gx] == "1"
+        )
+    if phase < 3.65:
+        cx, cy = (width - 1) / 2, (height - 1) / 2
+        distance = math.hypot(x - cx, y - cy)
+        radius = (phase - 3.0) / 0.65 * math.hypot(cx, cy)
+        return abs(distance - radius) < 0.75
+    return False
+
+
+def pinball(x, y, t, width, height):
+    """A two-click travelling ball punctuated by loud bumper impacts."""
+    frame = int(t * 6)
+    span_x, span_y = max(1, 2 * (width - 1)), max(1, 2 * (height - 1))
+
+    def bounce(step, span, size):
+        p = step % span
+        return p if p < size else span - p
+
+    ball_x = bounce(frame, span_x, width)
+    ball_y = bounce(frame * 2 + 1, span_y, height)
+    impact = frame % 17 == 0
+    border = x in (0, width - 1) or y in (0, height - 1)
+    return (x == ball_x and y == ball_y) or (impact and border)
+
+
 SHADERS = {
     "ripple": ("Ripple", ripple),
     "ember_static": ("Ember Static", ember_static),
@@ -172,6 +271,11 @@ SHADERS = {
     "checker_breath": ("Checker Breath", checker_breath),
     "standing_wave": ("Standing Wave Interference", standing_wave),
     "swirl": ("Swirl", swirl),
+    "domino_run": ("Domino Run", domino_run),
+    "shutter_clack": ("Shutter Clack", shutter_clack),
+    "sos_beacon": ("SOS Beacon", sos_beacon),
+    "countdown_pop": ("Countdown Pop", countdown_pop),
+    "pinball": ("Pinball", pinball),
 }
 
 
