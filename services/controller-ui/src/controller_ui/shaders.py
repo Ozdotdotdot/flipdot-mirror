@@ -278,6 +278,27 @@ SHADERS = {
     "pinball": ("Pinball", pinball),
 }
 
+# A shader is mathematically endless, but the UI presents each one as a small
+# performance.  These durations include any deliberate rest at the end.
+SHADER_DURATIONS = {
+    "ripple": 6.0,
+    "ember_static": 6.0,
+    "bayer_fade": 8.0,
+    "gear_sweep": 5.25,
+    "conway_clack": 9.6,
+    "pulse_heart": 4.8,
+    "curtain_wipe": 6.0,
+    "snow_drift": 7.0,
+    "checker_breath": 4.8,
+    "standing_wave": 6.0,
+    "swirl": 5.0,
+    "domino_run": 8.8,
+    "shutter_clack": 4.0,
+    "sos_beacon": len(_SOS_UNITS) * 0.22,
+    "countdown_pop": 4.8,
+    "pinball": 17 / 6,
+}
+
 
 def render(shader_key: str, t: float, width: int, height: int) -> list[list[bool]]:
     fn = SHADERS[shader_key][1]

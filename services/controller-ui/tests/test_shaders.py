@@ -5,7 +5,9 @@ from controller_ui import shaders
 
 class ShaderTests(unittest.TestCase):
     def test_every_shader_renders_binary_grids_at_both_target_sizes(self):
+        self.assertEqual(set(shaders.SHADERS), set(shaders.SHADER_DURATIONS))
         for key in shaders.SHADERS:
+            self.assertGreater(shaders.SHADER_DURATIONS[key], 0)
             for width, height in ((5, 7), (35, 21)):
                 with self.subTest(shader=key, size=(width, height)):
                     grid = shaders.render(key, 1.234, width, height)

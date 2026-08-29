@@ -30,8 +30,11 @@ uses the panel as a mechanical sounder, Countdown Pop ends in a radial burst, an
 alternates quiet two-dot motion with loud border hits. Each is a pure function of
 `(x, y, t, width, height)` returning on/off, so it generalizes to the eventual 35x21 wall.
 
-Playback fps is capped at 10 (see `playback.py`) — these are real mechanical relays
+Playback fps is capped at 12 (see `playback.py`) — these are real mechanical relays
 flipping, not screen pixels, so the frame rate is deliberately conservative.
+Shaders and uploaded media play once by default. Enable **loop playback** in the control
+panel to repeat the current item; the same setting is applied when starting another shader
+or uploading media.
 
 ## Media upload
 

@@ -53,14 +53,19 @@ def disconnect():
 
 @app.get("/api/shaders")
 def list_shaders():
-    return jsonify([{"key": k, "name": v[0]} for k, v in shaders.SHADERS.items()])
+    return jsonify(
+        [
+            {"key": key, "name": value[0], "duration": shaders.SHADER_DURATIONS[key]}
+            for key, value in shaders.SHADERS.items()
+        ]
+    )
 
 
 @app.post("/api/shader")
 def run_shader():
     body = request.get_json(force=True)
     try:
-        playback.play_shader(body["key"], body.get("fps"))
+        playback.play_shader(body["key"], body.get("fps"), bool(body.get("loop", False)))
         return jsonify({"ok": True})
     except ValueError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 400
@@ -79,6 +84,13 @@ def set_fps():
     return jsonify({"ok": True, "fps": playback.fps})
 
 
+@app.post("/api/loop")
+def set_loop():
+    body = request.get_json(force=True)
+    playback.loop = bool(body.get("loop", False))
+    return jsonify({"ok": True, "loop": playback.loop})
+
+
 @app.post("/api/upload")
 def upload():
     file = request.files.get("file")
@@ -91,7 +103,8 @@ def upload():
         return jsonify({"ok": False, "error": str(exc)}), 400
     if not frames:
         return jsonify({"ok": False, "error": "no frames decoded"}), 400
-    playback.play_media(frames, file.filename or "upload", fps)
+    loop = request.form.get("loop", "false").lower() == "true"
+    playback.play_media(frames, file.filename or "upload", fps, loop)
     return jsonify({"ok": True, "frames": len(frames), "fps": playback.fps})
 
 

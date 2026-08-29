@@ -6,6 +6,7 @@ const portSelect = document.getElementById("port-select");
 const shaderList = document.getElementById("shader-list");
 const fpsSlider = document.getElementById("fps-slider");
 const fpsValue = document.getElementById("fps-value");
+const loopToggle = document.getElementById("loop-toggle");
 
 let width = 5;
 let height = 7;
@@ -61,9 +62,10 @@ async function pollState() {
 
     const pb = data.playback;
     statusLine.textContent =
-      pb.mode === "shader" ? `playing shader: ${pb.shader} @ ${pb.fps}fps`
-      : pb.mode === "media" ? `playing media: ${pb.media} @ ${pb.fps}fps`
+      pb.mode === "shader" ? `playing shader: ${pb.shader} @ ${pb.fps}fps${pb.loop ? " — looping" : " — once"}`
+      : pb.mode === "media" ? `playing media: ${pb.media} @ ${pb.fps}fps${pb.loop ? " — looping" : " — once"}`
       : "idle";
+    loopToggle.checked = pb.loop;
 
     document.querySelectorAll("#shader-list button").forEach((btn) => {
       btn.classList.toggle("active", pb.mode === "shader" && btn.dataset.key === pb.shader);
@@ -79,13 +81,17 @@ async function loadShaders() {
   shaderList.innerHTML = "";
   for (const s of list) {
     const btn = document.createElement("button");
-    btn.textContent = s.name;
+    btn.textContent = `${s.name} · ${s.duration.toFixed(1)}s`;
     btn.dataset.key = s.key;
     btn.onclick = () => {
       fetch("/api/shader", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: s.key, fps: Number(fpsSlider.value) }),
+        body: JSON.stringify({
+          key: s.key,
+          fps: Number(fpsSlider.value),
+          loop: loopToggle.checked,
+        }),
       });
     };
     shaderList.appendChild(btn);
@@ -137,6 +143,14 @@ fpsSlider.oninput = () => {
   });
 };
 
+loopToggle.onchange = () => {
+  fetch("/api/loop", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ loop: loopToggle.checked }),
+  });
+};
+
 document.getElementById("file-input").onchange = async (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -144,6 +158,7 @@ document.getElementById("file-input").onchange = async (e) => {
   uploadStatus.textContent = "converting...";
   const form = new FormData();
   form.append("file", file);
+  form.append("loop", loopToggle.checked);
   try {
     const res = await fetch("/api/upload", { method: "POST", body: form });
     const data = await res.json();
