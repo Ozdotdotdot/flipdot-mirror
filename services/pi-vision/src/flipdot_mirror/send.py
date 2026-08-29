@@ -41,8 +41,10 @@ def main() -> None:
     frame = pattern_frame(width, height, args.pattern)
     payload = frame.to_logical_bytes()
 
-    with serial.Serial(args.port, args.baud, timeout=1) as device:
-        time.sleep(0.25)
+    with serial.Serial(args.port, args.baud, timeout=2) as device:
+        # Opening the port toggles DTR and resets AVR boards (Nano/Mega); wait for
+        # the boot status line so we don't write before the sketch reaches loop().
+        device.readline()
         device.reset_input_buffer()
         device.write(encode_packet(payload))
         device.flush()

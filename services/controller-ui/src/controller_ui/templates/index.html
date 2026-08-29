@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>flipdot control</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+  <header>
+    <h1>flipdot control</h1>
+    <div id="conn-bar">
+      <span id="conn-dot" class="dot"></span>
+      <select id="port-select"></select>
+      <button id="refresh-ports">refresh</button>
+      <button id="connect-btn">connect</button>
+      <span id="conn-status"></span>
+    </div>
+  </header>
+
+  <main>
+    <section id="grid-section">
+      <div id="grid" style="--cols: {{ width }}; --rows: {{ height }}"></div>
+      <div id="status-line">idle</div>
+      <div id="fill-controls">
+        <button id="fill-white">all white</button>
+        <button id="fill-black">all black</button>
+      </div>
+    </section>
+
+    <section id="controls">
+      <div class="panel">
+        <h2>shaders</h2>
+        <div id="shader-list"></div>
+        <label>
+          fps <span id="fps-value">6</span>
+          <input id="fps-slider" type="range" min="1" max="12" step="1" value="6" />
+        </label>
+        <button id="stop-btn">stop</button>
+      </div>
+
+      <div class="panel">
+        <h2>upload media</h2>
+        <p class="hint">image, gif, or video &mdash; converted to dithered on/off frames</p>
+        <input id="file-input" type="file" accept="image/*,video/*" />
+        <div id="upload-status"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
